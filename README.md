@@ -1,6 +1,6 @@
 # FM2L VBK miner source code patched.
 
-In ubuntu you can change the /dev/USB0 in [kernel.cc](#define MODEMDEVICE "/dev/ttyUSB0")
+In ubuntu you can change the /dev/USB0 in [kernel.cc:L45 (#define MODEMDEVICE "/dev/ttyUSB0")](https://github.com/trustcoinmining/nodecore-pow-cuda-miner/blob/bc3c990ac642934392f4f2a462e2e5ba4c7919b2/kernel.cc#L45)
 
 compile : `make`
 
