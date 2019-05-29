@@ -1014,6 +1014,8 @@ class UCPClient {
     storedPort = port;
     storedUsername = username;
     storedPassword = password;
+    int retrycount=0;
+  retry:
     boolean result = connectToServer(true);
     if (!result) {
       if (BENCHMARK) {
@@ -1024,7 +1026,12 @@ class UCPClient {
         cout << outputBuffer << endl;
         Log::warn(outputBuffer);
       } else {
-        promptExit(-1);
+	if (++retrycount > 3) 
+        	promptExit(-1);
+	else{
+		cout << "Connection Error retry " << retrycount << endl;
+		goto retry;
+	}
       }
     }
   }
@@ -1077,11 +1084,12 @@ class UCPClient {
 	  }
 	}
     string miningSubmit = getMiningSubmitString(jobId, timestamp, nonce) + "\n";
+    // cout << miningSubmit.c_str() << endl;
     long success = send(ucpServerSocket, miningSubmit.c_str(),
                         (int)strlen(miningSubmit.c_str()), 0);
     sentShares++;
 
-    if (lastAcknowledgement + 5 < sentShares) {
+    if (lastAcknowledgement + 10 < sentShares) {
       snprintf(
           outputBuffer, sizeof outputBuffer,
           "Pool server appears unresponsive! Exiting...");  // Todo: attempt
