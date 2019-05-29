@@ -1,3 +1,28 @@
+# FM2L VBK miner source code patched.
+
+In ubuntu you can change the /dev/USB0 in [kernel.cc](#define MODEMDEVICE "/dev/ttyUSB0")
+
+compile : `make`
+
+In Windows version you can change the COM3 or COM2 , like this way.
+
+### when build in windows , please refer original build documentation
+[Compiling on Windows](#compile_windows)
+
+If you build this in Windows version share us. or PR.
+
+**Bounty Jobs for 5000TEO**
+**And, You will be a changce for our team**
+
+PR and Issue , for this repository with your TEO address.
+
+
+# Thanks,
+
+----------
+
+
+
 Latest downloads
 
 Linux 
