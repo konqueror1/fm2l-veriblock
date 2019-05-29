@@ -12,7 +12,7 @@ In Windows version you can change the COM3 or COM2 , like this way.
 If you build this in Windows version share us. or PR.
 
 **Bounty Jobs for 5000TEO**
-**And, You will be a changce for our team**
+**And, You will be a chance with work with our team**
 
 PR and Issue , for this repository with your TEO address.
 
