@@ -10,14 +10,15 @@
 
 #ifdef _WIN32
 typedef SSIZE_T ssize_t;
+#include <winsock2.h>
 #include <Windows.h>
-#include <VersionHelpers.h>
+// #include <VersionHelpers.h>
 #include <io.h>
 #include <BaseTsd.h>
 #endif
 
 #ifdef __linux__
-#include <sys/socket.h> 
+#include <sys/socket.h>
 #include <netdb.h>
 #include "_kernel.h"
 #endif
@@ -35,18 +36,24 @@ typedef SSIZE_T ssize_t;
 #define DEFAULT_BLOCKSIZE 0x2000
 #define DEFAULT_THREADS_PER_BLOCK 256
 
+#ifdef _WIN32
+#include "rs232.h"
+#include <io.h>		// unistd.h replacement in Win32
+#else
 #include <termios.h>
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/types.h>
 
 #define BAUDRATE B115200
-#define MODEMDEVICE "/dev/ttyUSB0"
+// #define MODEMDEVICE "/dev/ttyUSB0"
 // #define MODEMDEVICE "/dev/ttyUSB1"
+#define MODEMDEVICE "COM8"
 #define _POSIX_SOURCE 1         //POSIX compliant source
 
-	int fd = -1; /* Файловый дескриптор для порта */
+int fd = -1; /* Файловый дескриптор для порта */
 
 
 #define ROTR64(x, n)  (((x) >> (n)) | ((x) << (64 - (n))))
@@ -62,7 +69,7 @@ typedef SSIZE_T ssize_t;
 	v[c] +=  v[d]; \
 	v[b] = ROTR64(v[b] ^ v[c], 18); \
 	v[d] ^= (~v[a] & ~v[b] & ~v[c]) | (~v[a] & v[b] & v[c]) | (v[a] & ~v[b] & v[c])   | (v[a] & v[b] & ~v[c]); \
-    v[d] ^= (~v[a] & ~v[b] & v[c]) | (~v[a] & v[b] & ~v[c]) | (v[a] & ~v[b] & ~v[c]) | (v[a] & v[b] & v[c]); \
+	v[d] ^= (~v[a] & ~v[b] & v[c]) | (~v[a] & v[b] & ~v[c]) | (v[a] & ~v[b] & ~v[c]) | (v[a] & v[b] & v[c]); \
 }
 
 static const uint8_t sigma[16][16] = {
@@ -110,7 +117,7 @@ void vblake512_compress(unsigned long *h, unsigned long *mc)
 {
 	unsigned long v[16];
 	unsigned long m[16] ={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-    //#pragma unroll 8
+	//#pragma unroll 8
 	for (int i = 0; i < 8; i++)
 	m[i] = mc[i];
 	//#pragma unroll 8
@@ -119,11 +126,11 @@ void vblake512_compress(unsigned long *h, unsigned long *mc)
 		v[i + 8] = vBlake_iv[i];
 	}
 	v[12] ^= 64;
-	v[14] ^= (ulong)(0xfffffffffffffffful);// (long)(-1);
+	v[14] ^= (unsigned long)(0xfffffffffffffffful);// (long)(-1);
 
 
 	#pragma unroll 16
-	
+
 	for (int i = 0; i < 16; i++) {
 		B2B_G(v, 0, 4, 8, 12, m[sigma[i][1]], m[sigma[i][0]],
 			u512[sigma[i][1]], u512[sigma[i][0]]);
@@ -170,7 +177,7 @@ unsigned long vBlake2( uint64_t *hi, uint64_t h7)
 		h[i] = vBlake_iv[i];
 		b[i] = hi[i];
 	}
-	h[0] ^= (ulong)(0x01010000 ^ 0x18);
+	h[0] ^= (unsigned long)(0x01010000 ^ 0x18);
 
 	b[7] = h7;
 
@@ -178,35 +185,6 @@ unsigned long vBlake2( uint64_t *hi, uint64_t h7)
 
 	return h[0];
 }
-
-
-
-
-int openserial(char *devicename)
-{
-	char	strbuf[256];
-  	fd = open(MODEMDEVICE, O_RDWR | O_NOCTTY | O_NDELAY);
-	if (fd == -1)
-	{
-		sprintf(strbuf, "open_port: Unable to open %s\n", devicename);
-		perror(strbuf);
-	}
-
-	struct termios options;
-	tcgetattr(fd, &options);
-	options.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;		//<Set baud rate
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush(fd, TCIFLUSH);
-	tcsetattr(fd, TCSANOW, &options);
-
-    return fd;
-}
-
-
-
-
 
 
 pthread_mutex_t stratum_sock_lock;
@@ -233,7 +211,8 @@ UCPClient* pUCP;
 
 struct mining_attr {
 	int dev_id;
-
+	uint32_t fd;
+        char dev_name[256];
 };
 
 int opt_n_threads = 1;
@@ -279,47 +258,6 @@ void getWork(UCPClient& ucpClient, uint32_t timestamp, uint64_t *header)
 }
 
 int deviceToUse = 0;
-
-#if NVML
-nvmlDevice_t device;
-void readyNVML(int deviceIndex) {
-	nvmlInit();
-	nvmlDeviceGetHandleByIndex(deviceIndex, &device);
-}
-int getTemperature() {
-	unsigned int temperature;
-	nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &temperature);
-	return temperature;
-}
-
-int getCoreClock() {
-	unsigned int clock;
-	nvmlDeviceGetClock(device, NVML_CLOCK_GRAPHICS, NVML_CLOCK_ID_CURRENT, &clock);
-	return clock;
-}
-
-int getMemoryClock() {
-	unsigned int memClock;
-	nvmlDeviceGetClock(device, NVML_CLOCK_MEM, NVML_CLOCK_ID_CURRENT, &memClock);
-	return memClock;
-}
-#else
-void readyNVML(int deviceIndex) {
-	// Do Nothing
-}
-
-int getTemperature() {
-	return -1;
-}
-
-int getCoreClock() {
-	return -1;
-}
-
-int getMemoryClock() {
-	return -1;
-}
-#endif
 
 #define SHARE_SUBMISSION_NO_RESPONSE_WARN_THRESHOLD 50
 
@@ -430,7 +368,7 @@ void dump(const char *fname, void *data, size_t len)
 
 	}
 
-	ret = write(fd, data, len);
+	ret = write(fd, (char *)data, len);
 	if (ret == -1) {
 		sprintf(outputBuffer, "write: %s: %s", fname, strerror(errno));
 		cout << outputBuffer << endl;
@@ -459,115 +397,143 @@ void dump(const char *fname, void *data, size_t len)
 
 
 
-void kernel_vblake(uint *nonceStart, uint *nonceOut, unsigned long *hashStartOut, unsigned long  *headerIn)
-{
+int kernel_vblake(uint32_t *nonceStart, uint32_t *nonceOut, unsigned long *hashStartOut, unsigned long *headerIn) {
 	// Generate a unique starting nonce for each thread that doesn't overlap with the work of any other thread
-	uint nonce = 0;//nonceStart[0];//((uint)get_global_id(0)&0xffffffffu) + 
-uint n = 0;
-	do {
-nonce = n;
-	unsigned long nonceHeaderSection = headerIn[7];
+	uint32_t nonce = 0;  // nonceStart[0];//((uint)get_global_id(0)&0xffffffffu) +
+	uint32_t n = 0;
 
-	
+	do {
+		nonce = n;
+		uint64_t nonceHeaderSection = headerIn[7];
+
+
 		nonceHeaderSection &= 0x00000000FFFFFFFFu;
 		nonceHeaderSection |= (((unsigned long)nonce) << 32);
 
-		unsigned long hashStart = vBlake2(headerIn, nonceHeaderSection);
+		unsigned long hashStart = vBlake2( (uint64_t *)headerIn, (uint64_t)nonceHeaderSection);
 
- //printf("H=  0x%jx)\n",  hashStart);	
+//printf("H=  0x%jx)\n",  hashStart);
 
 //sleep(1000);
 		if ((hashStart & 0x00000000FFFFFFFFu) == 0) { // 2^32 difficulty
-								
+
 			//if (hashStartOut[0] > hashStart || hashStartOut[0] == 0) {
 				nonceOut[0] = nonce;
 				hashStartOut[0] = hashStart;
-				printf("HASH=  0x%jx)\n",  hashStart);	
+				printf("HASH=  0x%jx)\n",  hashStart);
 				return 1;
 			//}
-			
+
 		}
 		n++;
-		} while (n < 0x0000000000ffFFFF );	
-		
-		
+	} while (n < 0x0000000000ffFFFF );
+
+	return 0;
 }
 
 
+int openserial(char *devicename) {
+  char strbuf[256];
 
+#ifdef _WIN32
+
+#else
+  fd = open(devicename, O_RDWR | O_NOCTTY | O_NDELAY);
+
+  if (fd == -1) {
+    sprintf(strbuf, "open_port: Unable to open %s\n", devicename);
+    perror(strbuf);
+  }
+
+  struct termios options;
+  tcgetattr(fd, &options);
+  options.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;  //<Set baud rate
+  options.c_iflag = IGNPAR;
+  options.c_oflag = 0;
+  options.c_lflag = 0;
+  tcflush(fd, TCIFLUSH);
+  tcsetattr(fd, TCSANOW, &options);
+#endif
+
+  return fd;
+}
 
 
 uint32_t recvserial(int fd)
 {
 	uint32_t goodnonce = 0;
 	uint32_t temperature;
- 	int res;
+	int res;
 	unsigned char In1;
-	uint32_t gnonce;//uint64_t
+	uint32_t gnonce = 0;//uint64_t
 	unsigned char buf[4];//4
 	int gnonceBytes =0 ;
 	int good=0;
-				res = read(fd,buf,4);//4
-				if (res>0)
-				{
-					for (int i=0; i<res; i++)  //for all chars in string
-					{
-						In1 = buf[i];
-						//fprintf(stdout,"[%02x] ",In1);
-						//fflush(stdout);
 
-						gnonce <<= 8;
-						gnonce |= In1;
-						//fprintf(stdout,"gnonce  [%#010x] ",gnonceBytes);
-						//fflush(stdout);	
-						if (++gnonceBytes == 4)
-						{
-							good = 1;
-							gnonceBytes = 0;
-						}
+#ifdef _WIN32
+	res = comRead(fd, (char *)buf, 4);
+#else
+	res = read(fd, (char *)buf, 4);
+#endif
 
-					} // end of for all chars in string
-				}  // end if res>0
+	if (res > 0) {
+		for (int i=0; i<res; i++) { //for all chars in string
+			In1 = buf[i];
+			//fprintf(stdout,"[%02x] ",In1);
+			//fflush(stdout);
 
-		if (good==1) 
-		{
+			gnonce <<= 8;
+			gnonce |= In1;
+			//fprintf(stdout,"gnonce  [%#010x] ",gnonceBytes);
+			//fflush(stdout);
+			if (++gnonceBytes == 4)
+			{
+				good = 1;
+				gnonceBytes = 0;
+			}
+		} // end of for all chars in string
+	}  // end if res>0
 
-  		goodnonce 	= gnonce;// >> 32;
-
+	if (good==1)
+	{
+		goodnonce 	= gnonce;// >> 32;
 		return goodnonce;
-		} else {
-		return 0;
-		}	
+	}
+
+	return 0;
 }
 
 void unpack_uint64(uint64_t number, uint8_t *result) {
 /*
-    result[0] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[1] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[2] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[3] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[4] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[5] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[6] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[7] = number & 0x00000000000000FF ;
+	result[0] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[1] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[2] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[3] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[4] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[5] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[6] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[7] = number & 0x00000000000000FF ;
 */
-    result[7] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[6] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[5] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[4] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[3] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[2] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[1] = number & 0x00000000000000FF ; number = number >> 8 ;
-    result[0] = number & 0x00000000000000FF ;
+	result[7] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[6] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[5] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[4] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[3] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[2] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[1] = number & 0x00000000000000FF ; number = number >> 8 ;
+	result[0] = number & 0x00000000000000FF ;
 
 }
 
 
 
 void* miner_thread(void* arg) {
-	struct mining_attr *arg_Struct =
-		(struct mining_attr*) arg;
+	struct mining_attr *arg_Struct = (struct mining_attr*) arg;
 	short thr_id = arg_Struct->dev_id;
+    uint32_t devfd = arg_Struct->fd;
+    char dev_name[256];
+    strncpy(dev_name, arg_Struct->dev_name, 256);
+
 	uint32_t end_nonce = 0x20000000u * (thr_id + 1);
 	// Run initialization of device before beginning timer
 	uint64_t header[8];
@@ -596,10 +562,13 @@ void* miner_thread(void* arg) {
 	phashstartout = (uint64_t *)malloc(sizeof(uint64_t) * 2);
 	pheaderin = (uint64_t *)malloc(sizeof(uint64_t) * 9);
 
-//TODOS	pnoncestart_d = check_clCreateBuffer(context[thr_id], CL_MEM_READ_WRITE, sizeof(uint32_t) * 1, NULL);
-//TODOS	pnonceout_d = check_clCreateBuffer(context[thr_id], CL_MEM_READ_WRITE, sizeof(uint32_t) * 1, NULL);
-//TODOS	phashstartout_d = check_clCreateBuffer(context[thr_id], CL_MEM_READ_WRITE, sizeof(uint64_t) * 1, NULL);
-//TODOS	pheaderin_d = check_clCreateBuffer(context[thr_id], CL_MEM_READ_WRITE, sizeof(uint64_t) * 8, NULL);
+#ifdef _WIN32
+	int nPort = comFindPort(dev_name);
+        devfd = comOpen( nPort, 115200);
+#else
+    devfd = openserial(dev_name);  //		serial_port
+    arg_Struct->fd = devfd;
+#endif
 
 	uint32_t count = 0;
 
@@ -619,60 +588,62 @@ void* miner_thread(void* arg) {
 		pthread_mutex_unlock(&stratum_sock_lock);
 		count++;
 		vprintf("Running kernel...\n");
-		//printf("H=  0x%jx)\n",  header[7]);	
+		//printf("H=  0x%jx)\n",  header[7]);
 
 		/*
-		
+
   header[0] = 0x798f0200b0540000ULL;
   header[1] = 0xf88940e77681cbbdULL;
-  header[2] = 0x43b67ea964231229ULL; 
+  header[2] = 0x43b67ea964231229ULL;
   header[3] = 0xf2fe6082ba634ed4ULL;
-  header[4] = 0x7b7d9eb035f86bd2ULL; 
+  header[4] = 0x7b7d9eb035f86bd2ULL;
   header[5] = 0x205aafeabd6ac03bULL;
-  header[6] = 0x3fc4a45c36e4126cULL; 
+  header[6] = 0x3fc4a45c36e4126cULL;
   header[7] = 0x0000000006d40207ULL;
 //0x00b006a5
-//0x00b00624			
+//0x00b00624
 	*/	for (int i = 0; i<8; i++){
 			pheaderin[i] = header[i];
-		//printf("H[%d]=  0x%jx)\n", i, header[i]);		
+		//printf("H[%d]=  0x%jx)\n", i, header[i]);
 		}
 		pnonceout[0] = 0;
 		phashstartout[0] = 0;
 
+		int tmp;
+		int write_len;
+		unsigned char buf[8];
 
-	
-	int tmp;
-	int write_len;
-	unsigned char buf[8];
-	for (int kk=0; kk < 8; kk++)
-	{
-	unpack_uint64(header[kk],buf);
-	write_len = write(fd,&buf,8);	
-//printf("write_len:  %#010x\n", write_len);
-	};
-	
-int recv_ok;
+		for (int kk=0; kk < 8; kk++)
+		{
+			unpack_uint64(header[kk],buf);
+#ifdef _WIN32
+			write_len = comWrite(devfd, (char *)buf, 8);
+#else
+			write_len = write(devfd, (char *)buf,8);
+#endif
+		//printf("write_len:  %#010x\n", write_len);
+		};
 
-	do {
-	recv_ok = recvserial(fd);
-	} while (recv_ok==0);
+		int recv_ok;
+
+		do {
+			recv_ok = recvserial(devfd);
+		} while (recv_ok==0);
 
 //if (recv_ok>0){
-printf("U%02d :  %#010x\n", thr_id, recv_ok);
-	
+		printf("U%02d :  %#010x\n", thr_id, recv_ok);
+
 		if (recv_ok==0x3fffffff){
 
-		} else
-		{
-			pnonceout[0] = recv_ok- 129;
+		} else {
+			pnonceout[0] = recv_ok - 129;
 
 			nonceResult[0] = pnonceout[0];
 
 			uint32_t nonce = *nonceResult;
-			nonce = (((nonce & 0xFF000000) >> 24) | 
-				((nonce & 0x00FF0000) >> 8) | 
-				((nonce & 0x0000FF00) << 8) | 
+			nonce = (((nonce & 0xFF000000) >> 24) |
+				((nonce & 0x00FF0000) >> 8) |
+				((nonce & 0x0000FF00) << 8) |
 				((nonce & 0x000000FF) << 24));
 
 			pthread_mutex_lock(&stratum_sock_lock);
@@ -718,122 +689,23 @@ printf("U%02d :  %#010x\n", thr_id, recv_ok);
 			numLines++;
 		}
 
-
-//} else
-//{
-//printf("U2:  %#010x\n", recv_ok);
-//}
-	//close(fd);        //close the com port
-
-//sleep(100000);
-
-
-		//uint32_t nonceStart = (uint64_t)lastNonceStart + (blocksize * 128 * threadsPerBlock);
-		//lastNonceStart = nonceStart;
-		//pnoncestart[0] = startNonce;
 		vprintf("Wrote buffers...\n");
-//kernel_vblake(pnoncestart, pnonceout, phashstartout, pheaderin);
 
-/*
-		hashStart[0] = phashstartout[0];
-		pthread_mutex_lock(&stratum_log_lock);
-		unsigned long long totalTime = std::time(0) - startTime;
-		pthread_mutex_unlock(&stratum_log_lock);
-		//hashes =00ffFFFF;//+ ((uint32_t)blocksize * (uint32_t)threadsPerBlock * WORK_PER_THREAD);
-		if ((uint64_t)startNonce + (uint64_t)(blocksize * threadsPerBlock * WORK_PER_THREAD) < (uint64_t)end_nonce) {
-			startNonce += ((uint32_t)blocksize * (uint32_t)threadsPerBlock * WORK_PER_THREAD);
-		}
-		else
-			startNonce = 0x20000000u * (uint32_t)thr_id;
+		//kernel_vblake(pnoncestart, pnonceout, phashstartout, pheaderin);
 
-		double hashSpeed = (double)hashes;
-		hashSpeed = 16777215/totalTime  ;
-
-		if (count % 20 == 0) {
-			pthread_mutex_lock(&stratum_sock_lock);
-
-			int validShares = pUCP->getValidShares();
-			int invalidShares = pUCP->getInvalidShares();
-			int totalAccountedForShares = invalidShares + validShares;
-			int totalSubmittedShares = pUCP->getSentShares();
-			int unaccountedForShares = totalSubmittedShares - totalAccountedForShares;
-
-			pthread_mutex_unlock(&stratum_sock_lock);
-
-			double percentage = ((double)validShares) / totalAccountedForShares;
-			percentage *= 100;
-			// printf("[GPU #%d (%s)] : %f MH/second    valid shares: %d/%d/%d (%.3f%%)\n", deviceToUse, selectedDeviceName.c_str(), hashSpeed, validShares, totalAccountedForShares, totalSubmittedShares, percentage);
-			//printf("hashend %#018llx \n ", header[0]);
-			printf("[GPU #%d (%s)] : %0.2f MH/s shares: %d/%d/%d (%.3f%%)\n", thr_id, device_name[thr_id], hashSpeed, validShares, totalAccountedForShares, totalSubmittedShares, percentage);
-
-
-		}
-
-		if (nonceResult[0] != 0x01000000 && nonceResult[0] != 0
-			&& lastnonce[0] != nonceResult[0] && lastnonce[1] != nonceResult[0] && lastnonce[2] != nonceResult[0]
-			&& lastnonce[3] != nonceResult[0]) {
-
-			uint32_t nonce = *nonceResult;
-			nonce = (((nonce & 0xFF000000) >> 24) | ((nonce & 0x00FF0000) >> 8) | ((nonce & 0x0000FF00) << 8) | ((nonce & 0x000000FF) << 24));
-			pthread_mutex_lock(&stratum_sock_lock);
-			lastnonce[3] = lastnonce[2];
-			lastnonce[2] = lastnonce[1];
-			lastnonce[1] = lastnonce[0];
-			lastnonce[0] = nonceResult[0];
-
-
-			pUCP->submitWork(jobId, timestamp, nonce);
-			pthread_mutex_unlock(&stratum_sock_lock);
-			nonceResult[0] = 0;
-
-			char line[100];
-
-			// Hash coming from GPU is reversed
-			uint64_t hashFlipped = 0;
-			hashFlipped |= (hashStart[0] & 0x00000000000000FF) << 56;
-			hashFlipped |= (hashStart[0] & 0x000000000000FF00) << 40;
-			hashFlipped |= (hashStart[0] & 0x0000000000FF0000) << 24;
-			hashFlipped |= (hashStart[0] & 0x00000000FF000000) << 8;
-			hashFlipped |= (hashStart[0] & 0x000000FF00000000) >> 8;
-			hashFlipped |= (hashStart[0] & 0x0000FF0000000000) >> 24;
-			hashFlipped |= (hashStart[0] & 0x00FF000000000000) >> 40;
-			hashFlipped |= (hashStart[0] & 0xFF00000000000000) >> 56;
-
-
-			sprintf(line, "\t Share Found @ 2^32! {%#08lx} [nonce: %#08lx]", hashFlipped, nonce);
-
-
-			cout << line << endl;
-			vprintf("Logging\n");
-			Log::info(line);
-			vprintf("Done logging\n");
-			vprintf("Made line\n");
-
-			numLines++;
-
-			// Uncomment these lines to get access to this data for display purposes
-			
-			//long long extraNonce = ucpClient.getStartExtraNonce();
-			//int jobId = ucpClient.getJobId();
-			//int encodedDifficulty = ucpClient.getEncodedDifficulty();
-			//string previousBlockHashHex = ucpClient.getPreviousBlockHash();
-			//string merkleRoot = ucpClient.getMerkleRoot();
-			
-
-		}*/
 		vprintf("About to restart loop...\n");
 	}
 
 	printf("Resetting device...\n");
 
-	//	free(pnoncestart);
-	//free(pnonceout);
-	//free(phashstartout);
-	//free(pheaderin);
+	#ifdef _WIN32
+        comClose(devfd);
+	#else
+        closeserial(devfd);
+	#endif
+
 	getchar();
 	return 0;
-
-
 }
 
 int main(int argc, char *argv[])
@@ -854,6 +726,14 @@ int main(int argc, char *argv[])
 		cerr << outputBuffer << endl;
 		printHelpAndExit();
 	}
+
+
+#ifdef _WIN32
+        // HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+        int comcnt = comEnumerate();
+        printf("COMPORTS Count %d\n", comcnt);
+#endif
+
 
 	string hostAndPort = ""; //  "94.130.64.18:8501";
 	string username = ""; // "VGX71bcRsEh4HZzhbA9Nj7GQNH5jGw";
@@ -976,12 +856,6 @@ int main(int argc, char *argv[])
 		Log::info(outputBuffer);
 	}
 
-
-#ifdef _WIN32
-	//HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-#else
-#endif
-
 	if (hostAndPort.compare("") == 0) {
 		string error = "You must specify a host in the command line arguments! Example: \n-o 127.0.0.1:8501 or localhost:8501";
 		cerr << error << endl;
@@ -1027,78 +901,12 @@ int main(int argc, char *argv[])
 //sleep(10000);
 	int version, ret;
 
-
-	fd = openserial(MODEMDEVICE);//		serial_port	
-
 	for (int i = 0; i < opt_n_threads; i++)
 	{
-		//	if (scan_platform(platform_M, &nr_devs_total, &plat_id, &dev_id[i], device_map[i]))
-
-		/* Create context.
-		context[i] = clCreateContext(NULL, 1, &dev_id[i],
-			NULL, NULL, &status);
-		if (status != CL_SUCCESS || !context[i]) {
-			sprintf(outputBuffer, "clCreateContext (%d)", status);
-			cout << outputBuffer << endl;
-			Log::error(outputBuffer);
-			promptExit(-1);
-		}*/
-		/* Creating command queue associate with the context.
-		queue[i] = clCreateCommandQueue(context[i], dev_id[i],
-			0, &status);
-		if (status != CL_SUCCESS || !queue[i]) {
-			sprintf(outputBuffer, "clCreateCommandQueue (%d)", status);
-			cout << outputBuffer << endl;
-			Log::error(outputBuffer);
-			promptExit(-1);
-		}*/
-
-		/* Create program object */
-#ifdef WIN32
-		//load_file("input.cl", (char **)&source, &source_len, 0);
-		//load_file("input.bin", &binary, &binary_len, 1);
-#else
-		//source = ocl_code;
-#endif
-		//source_len = strlen(source);
-/*
-		program[i] = clCreateProgramWithSource(context[i], 1, (const char **)&source,&source_len, &status);
-			
-		if (status != CL_SUCCESS || !program[i]) {
-			sprintf(outputBuffer, "clCreateProgramWithSource (%d)", status);
-			cout << outputBuffer << endl;
-			Log::error(outputBuffer);
-			promptExit(-1);
-		}
-*/
 		/* Build program. */
 		sprintf(outputBuffer, "Building program #%d", i);
 		cout << outputBuffer << endl;
 		Log::info(outputBuffer);
-/*
-		status = clBuildProgram(program[i], 1, &dev_id[i],
-			(amd_flag) ? ("-I .. -I .") : ("-I .. -I ."), // compile options
-			NULL, NULL);
-		if (status != CL_SUCCESS) {
-			sprintf(outputBuffer, "OpenCL build failed (%d). Build log follows:", status);
-
-			get_program_build_log(program[i], dev_id[i]);
-			cout << outputBuffer << endl;
-			Log::error(outputBuffer);
-			promptExit(-1);
-		}
-*/
-//TODOS		get_program_bins(program[i]);
-		// Create kernel objects
-//TODOS		k_vblake[i] = clCreateKernel(program[i], "kernel_vblake", &status);
-	//	if (status != CL_SUCCESS || !k_vblake[i]) {
-	//		sprintf(outputBuffer, "clCreateKernel (%d)", status);
-	//		cout << outputBuffer << endl;
-	//		Log::error(outputBuffer);
-//TODOS			get_program_build_log(program[i], dev_id[i]);
-	//		promptExit(-1);
-	//	}
-
 	}
 
 	pthread_t tids[MAX_GPUS];
@@ -1107,6 +915,8 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < opt_n_threads; i++) {
 
 		m_args[i].dev_id = device_map[i];
+        m_args[i].fd = fd;
+        strncpy(m_args[i].dev_name, MODEMDEVICE, 256);
 
 		pthread_create(&tids[i], NULL, miner_thread, &m_args[i]);
 	}
