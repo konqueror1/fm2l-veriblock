@@ -684,6 +684,8 @@ void* miner_thread(void* arg) {
 			loop_count++;
 			recv_ok = recvserial(devfd);
 
+		#ifdef _WIN32
+				// win32 port suspending workaround
 			if (loop_count > 1000) {
 				// check newer job is exist or not
 					printf("Getting work. %d] cnt: %d\n", thr_id, count);
@@ -704,7 +706,7 @@ void* miner_thread(void* arg) {
 										  goto restart_here;
 					}
 			}
-
+		#endif
 
 		} while (recv_ok==0);
 
