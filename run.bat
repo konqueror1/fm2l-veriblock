@@ -4,7 +4,7 @@ TITLE %APP_TITLE%
 
 :Execute
 
- veri_fm2l -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C
+ veri_fm2l -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C -nl COM8,COM2,COM3
  
 echo ----------------------------------------------------------------------
 echo ^| FPGA FM2L Miner is restarting in 1 seconds!                             ^|
