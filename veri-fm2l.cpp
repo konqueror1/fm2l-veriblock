@@ -12,7 +12,7 @@
 typedef SSIZE_T ssize_t;
 #include <winsock2.h>
 #include <Windows.h>
-// #include <VersionHelpers.h>
+#include <VersionHelpers.h>
 #include <io.h>
 #include <BaseTsd.h>
 #endif
@@ -20,7 +20,7 @@ typedef SSIZE_T ssize_t;
 #ifdef __linux__
 #include <sys/socket.h>
 #include <netdb.h>
-#include "_kernel.h"
+//#include "_kernel.h"
 #endif
 
 #include <ctime>

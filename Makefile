@@ -1,16 +1,17 @@
-# Change this path if the SDK was installed in a non-standard location
-OPENCL_HEADERS = "/opt/AMDAPPSDK-3.0/include"
-# By default libOpenCL.so is searched in default system locations, this path
-# lets you adds one more directory to the search path.
-LIBOPENCL = "/opt/amdgpu-pro/lib/x86_64-linux-gnu"
+# 
+# TCM-FM2L FPGA Miner for Veriblock vBlake2B
+#
+# (C) 2019 , trustcoinmining.com
+# 
+# License : GPL V3 
+#
 
 CC = g++
 CPPFLAGS = -I./incs
 CFLAGS = -O2 -Wall
 LDFLAGS =  -pthread -lpthread -fpermissive
 LDLIBS = -lpthread
-OBJ = kernel.cc libs/rs232-linux.c
-INCLUDES = _kernel.h
+OBJ = veri-fm2l.cpp libs/rs232-linux.c
 EXE = veri_fm2l
 all : ${EXE}
 
@@ -18,11 +19,6 @@ ${EXE} : ${OBJ}
 	${CC} -std=gnu++11 -o ${EXE} ${OBJ} ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} 
 
 ${OBJ} : ${INCLUDES} UCPClient.h Miner.h picojson.h
-
-_kernel.h : input.cl 
-	echo 'const char *ocl_code = R"_mrb_(' >$@
-	cpp $< >>$@
-	echo ')_mrb_";' >>$@
 
 clean :
 	rm -f ${EXE} _kernel.h *.o libs/*.o _temp_*
