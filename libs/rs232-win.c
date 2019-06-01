@@ -216,10 +216,10 @@ int comOpen(int index, int baudrate)
 // Prepare read / write timeouts
     SetupComm(handle, 64, 64);
     timeouts.ReadIntervalTimeout = MAX_DWORD;
-    timeouts.ReadTotalTimeoutConstant = 0;
-    timeouts.WriteTotalTimeoutConstant = 0;
-    timeouts.ReadTotalTimeoutMultiplier = 0;
-    timeouts.WriteTotalTimeoutMultiplier = 0;
+    timeouts.ReadTotalTimeoutConstant = 1000;
+    timeouts.WriteTotalTimeoutConstant = 1000;
+    timeouts.ReadTotalTimeoutMultiplier = 1;
+    timeouts.WriteTotalTimeoutMultiplier = 1;
     SetCommTimeouts(handle, &timeouts);
 // Prepare serial communication format
     GetCommState(handle, &config);
