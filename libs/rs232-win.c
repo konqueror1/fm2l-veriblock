@@ -210,8 +210,11 @@ int comOpen(int index, int baudrate)
     if (com->handle) comClose(index);
 // Open COM port
     void * handle = CreateFileA(comGetInternalName(index), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
-    if (handle == INVALID_HANDLE_VALUE)
-        return 0;
+    if (handle == INVALID_HANDLE_VALUE) {
+      printf("Port OpenError : %s\n", comGetInternalName(index));
+      return 0;
+
+	}
     com->handle = handle;
 // Prepare read / write timeouts
     SetupComm(handle, 64, 64);
@@ -236,6 +239,7 @@ int comOpen(int index, int baudrate)
 // Set the port state
     if (SetCommState(handle, &config) == 0) {
         CloseHandle(handle);
+		printf("Port OpenError : %s\n", comGetInternalName(index));
         return 0;
     }
     return 1;
@@ -276,6 +280,8 @@ int comRead(int index, char * buffer, size_t len)
     COMDevice * com = &comDevices[index];
     uint32_t bytes = 0;
     ReadFile(com->handle, buffer, len, &bytes, NULL);
+
+	//printf("idx [%d]rlen %d , %08x", index,bytes, (uint32_t)buffer);
     return bytes;
 }
 

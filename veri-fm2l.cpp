@@ -32,7 +32,7 @@ typedef SSIZE_T ssize_t;
 #define O_BINARY 0
 #endif
 
-#define MAX_GPUS 16
+#define MAX_GPUS 32
 #define DEFAULT_BLOCKSIZE 0x2000
 #define DEFAULT_THREADS_PER_BLOCK 256
 
@@ -50,7 +50,13 @@ typedef SSIZE_T ssize_t;
 #define BAUDRATE B115200
 // #define MODEMDEVICE "/dev/ttyUSB0"
 // #define MODEMDEVICE "/dev/ttyUSB1"
-#define MODEMDEVICE "COM8"
+
+#ifdef _WIN32
+#define DEFMODEMDEVICE "COM8"
+#else	// linux
+#define DEFMODEMDEVICE "/dev/ttyUSB0"
+#endif
+
 #define _POSIX_SOURCE 1         //POSIX compliant source
 
 int fd = -1; /* Файловый дескриптор для порта */
@@ -189,6 +195,8 @@ unsigned long vBlake2( uint64_t *hi, uint64_t h7)
 
 pthread_mutex_t stratum_sock_lock;
 pthread_mutex_t stratum_log_lock;
+pthread_mutex_t miner_port_lock;
+
 //cl_device_id *devices; //TODOS
 int blocksize = DEFAULT_BLOCKSIZE;
 int threadsPerBlock = DEFAULT_THREADS_PER_BLOCK;
@@ -212,7 +220,7 @@ UCPClient* pUCP;
 struct mining_attr {
 	int dev_id;
 	uint32_t fd;
-		char dev_name[256];
+	char dev_name[80];
 };
 
 int opt_n_threads = 1;
@@ -275,7 +283,8 @@ void printHelpAndExit() {
 	printf("Optional Arguments:\n");
 	printf("-p <password>              The miner/worker password to use on the pool\n");
 	printf("-d <deviceNum>             The ordinal of the device to use (default 0)\n");
-	printf("-tpb <threadPerBlock>      The threads per block to use with the Blake kernel (default %d)\n", DEFAULT_THREADS_PER_BLOCK);
+    printf("-nl <deviceNameList>       The ordinal of the device to use (default COM8 (win) or /dev/ttyUSB0 (linux))\n");
+    printf("-tpb <threadPerBlock>      The threads per block to use with the Blake kernel (default %d)\n", DEFAULT_THREADS_PER_BLOCK);
 	printf("-bs <blockSize>            The blocksize to use with the vBlake kernel (default %d)\n", DEFAULT_BLOCKSIZE);
 	printf("-l <enableLogging>         Whether to log to a file (default true)\n");
 	printf("-v <enableVerboseOutput>   Whether to enable verbose output for debugging (default false)\n");
@@ -442,6 +451,7 @@ int openserial(char *devicename) {
   if (fd == -1) {
 	sprintf(strbuf, "open_port: Unable to open %s\n", devicename);
 	perror(strbuf);
+    return -1;
   }
 
   struct termios options;
@@ -530,8 +540,8 @@ void* miner_thread(void* arg) {
 	struct mining_attr *arg_Struct = (struct mining_attr*) arg;
 	short thr_id = arg_Struct->dev_id;
 	uint32_t devfd = arg_Struct->fd;
-	char dev_name[256];
-	strncpy(dev_name, arg_Struct->dev_name, 256);
+	char dev_name[80];
+	strncpy(dev_name, arg_Struct->dev_name, 80);
 
 	uint32_t end_nonce = 0x20000000u * (thr_id + 1);
 	// Run initialization of device before beginning timer
@@ -561,18 +571,60 @@ void* miner_thread(void* arg) {
 	phashstartout = (uint64_t *)malloc(sizeof(uint64_t) * 2);
 	pheaderin = (uint64_t *)malloc(sizeof(uint64_t) * 9);
 
+	int numLines = 0;
+
 #ifdef _WIN32
+
+	pthread_mutex_lock(&miner_port_lock);
 	int nPort = comFindPort(dev_name);
-		devfd = comOpen( nPort, 115200);
+    int res = comOpen(nPort, 115200);
+    pthread_mutex_unlock(&miner_port_lock);
+
+	if (res != 0) {
+		devfd = nPort;
+          printf("Thread: %d] Port %s, Handle:%d - OK\n", thr_id, dev_name,
+                 nPort);
+	}
+    else {
+		devfd = 0xffffffff;
+      printf("Thread:%d] PleaseCheck devicename [%s]  correct or not\n CapitalCharacter Sensitive . com1 (x) -> COM1 (ok)\n", thr_id,dev_name);
+
+	  free(pnoncestart);
+      free(pnonceout);
+      free(phashstartout);
+      free(pheaderin);
+
+	  Sleep(1000);
+      return NULL;
+	}
+
+
+	arg_Struct->fd = devfd;
+
+
 #else
 	devfd = openserial(dev_name);  //		serial_port
+    if (devfd == -1)
+	{
+          printf("Thread:%d] PleaseCheck devicename [%s]  correct or not\n CapitalCharacter Sensitive . /dev/ttyusb0 (x) -> /dev/ttyUSB0 (ok)\n",
+              thr_id, dev_name);
+
+          free(pnoncestart);
+          free(pnonceout);
+          free(phashstartout);
+          free(pheaderin);
+
+          usleep(1000000);	// sleep 1seconds
+          return NULL;
+	}
 	arg_Struct->fd = devfd;
 #endif
 
+	printf("[%d/%s/fd:%x]FPGA Thread start\n", thr_id, dev_name, devfd);
+
 	uint32_t count = 0;
 
-	int numLines = 0;
-	printf("got in thread innit\n");
+
 	// Mining loop
 	while (true) {
 		vprintf("top of mining loop\n");
@@ -585,6 +637,8 @@ void* miner_thread(void* arg) {
 		vprintf("Getting job id...\n");
 		int jobId = pUCP->getJobId();
 		pthread_mutex_unlock(&stratum_sock_lock);
+
+	restart_here:
 		count++;
 		vprintf("Running kernel...\n");
 		//printf("H=  0x%jx)\n",  header[7]);
@@ -624,9 +678,34 @@ void* miner_thread(void* arg) {
 		};
 
 		int recv_ok;
+        int loop_count = 0;
 
 		do {
+			loop_count++;
 			recv_ok = recvserial(devfd);
+
+			if (loop_count > 1000) {
+				// check newer job is exist or not
+					printf("Getting work. %d] cnt: %d\n", thr_id, count);
+                    pthread_mutex_lock(&stratum_sock_lock);
+                    getWork(*pUCP, timestamp, header);
+                    vprintf("Getting job id...\n");
+                    int njobId = pUCP->getJobId();
+					pthread_mutex_unlock(&stratum_sock_lock);
+
+					if (njobId != jobId)
+					{
+                                          printf(
+                                              "NewJob :%08x (oldJob: %08x), "
+                                              "restart thread\n",
+                                              njobId, jobId);
+
+										  jobId = njobId;
+										  goto restart_here;
+					}
+			}
+
+
 		} while (recv_ok==0);
 
 //if (recv_ok>0){
@@ -733,6 +812,8 @@ int main(int argc, char *argv[])
 		printf("COMPORTS Count %d\n", comcnt);
 #endif
 
+	int  numofDev = 0;
+    char devportnames[MAX_GPUS][80] = {{0},};
 
 	string hostAndPort = ""; //  "94.130.64.18:8501";
 	string username = ""; // "VGX71bcRsEh4HZzhbA9Nj7GQNH5jGw";
@@ -779,6 +860,33 @@ int main(int argc, char *argv[])
 				//  else {
 				//	deviceToUse = argv[i + 1][0] - 48;
 				//  }
+			}
+			else if (!strcmp(argument, "-nl"))
+			{
+                char devstrings[512];
+                char *token;
+
+				// get list of deviceport name
+                // printf("args : %s\n", argv[i + 1]);
+                strncpy(devstrings, argv[i + 1], sizeof(devstrings));
+
+                /* cpplover.0601:: needs to finds thread-safe strtok_r() for all
+                 * platforms */
+                token = strtok(devstrings, ",");
+                while (token != NULL) {
+                  sscanf(token, "%s", &devportnames[numofDev++]);
+
+                  token = strtok(NULL, ",");
+                }
+
+				/*
+                printf("number of dev: %d\n", ndev);
+                for (int j = 0; j < ndev; j++)
+				{
+                  printf("[%d] [%s]\n", j, devnames[j]);
+                }
+				*/
+
 			}
 			else if (!strcmp(argument, "-o"))
 			{
@@ -842,7 +950,10 @@ int main(int argc, char *argv[])
 		printHelpAndExit();
 	}
 	pthread_mutex_init(&stratum_sock_lock, NULL);
-	pthread_mutex_init(&stratum_log_lock, NULL);
+    pthread_mutex_init(&stratum_log_lock, NULL);
+    pthread_mutex_init(&miner_port_lock, NULL);
+
+
 
 	if (HIGH_RESOURCE) {
 		sprintf(outputBuffer, "Resource Utilization: HIGH");
@@ -900,12 +1011,15 @@ int main(int argc, char *argv[])
 //sleep(10000);
 	int version, ret;
 
-	for (int i = 0; i < opt_n_threads; i++)
+	if (numofDev > 0)
 	{
-		/* Build program. */
-		sprintf(outputBuffer, "Building program #%d", i);
-		cout << outputBuffer << endl;
-		Log::info(outputBuffer);
+		// override thread condition and device maps
+		opt_n_threads = numofDev;
+        for (int i = 0; i < opt_n_threads; i++) {
+            device_map[i] = i;
+            strncpy(device_name[i], devportnames[i], 80);
+
+        }
 	}
 
 	pthread_t tids[MAX_GPUS];
@@ -915,7 +1029,7 @@ int main(int argc, char *argv[])
 
 		m_args[i].dev_id = device_map[i];
 		m_args[i].fd = fd;
-		strncpy(m_args[i].dev_name, MODEMDEVICE, 256);
+		strncpy(m_args[i].dev_name, device_name[i], 80);
 
 		pthread_create(&tids[i], NULL, miner_thread, &m_args[i]);
 	}
@@ -923,6 +1037,4 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < opt_n_threads; i++) {
 		pthread_join(tids[i], NULL);
 	}
-
-
 }
