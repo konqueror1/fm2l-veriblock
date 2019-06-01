@@ -212,7 +212,7 @@ UCPClient* pUCP;
 struct mining_attr {
 	int dev_id;
 	uint32_t fd;
-        char dev_name[256];
+		char dev_name[256];
 };
 
 int opt_n_threads = 1;
@@ -268,7 +268,7 @@ void vprintf(char* toprint) {
 }
 
 void printHelpAndExit() {
-	printf("VeriBlock vBlake OpenCL Miner v1.0\n");
+	printf("VeriBlock vBlake FM2L FPGA Miner v1.0\n");
 	printf("Required Arguments:\n");
 	printf("-o <poolAddress>           The pool address to mine to in the format host:port\n");
 	printf("-u <username>              The username (often an address) used at the pool\n");
@@ -281,7 +281,7 @@ void printHelpAndExit() {
 	printf("-v <enableVerboseOutput>   Whether to enable verbose output for debugging (default false)\n");
 	printf("\n");
 	printf("Example command line:\n");
-	printf("VeriBlock-NodeCore-PoW-CUDA -u VHT36jJyoVFN7ap5Gu77Crua2BMv5j -o testnet-pool-gpu.veriblock.org:8501 -l false\n");
+	printf("veri_fm2l  -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C \n");
 	promptExit(0);
 }
 
@@ -440,8 +440,8 @@ int openserial(char *devicename) {
   fd = open(devicename, O_RDWR | O_NOCTTY | O_NDELAY);
 
   if (fd == -1) {
-    sprintf(strbuf, "open_port: Unable to open %s\n", devicename);
-    perror(strbuf);
+	sprintf(strbuf, "open_port: Unable to open %s\n", devicename);
+	perror(strbuf);
   }
 
   struct termios options;
@@ -529,9 +529,9 @@ void unpack_uint64(uint64_t number, uint8_t *result) {
 void* miner_thread(void* arg) {
 	struct mining_attr *arg_Struct = (struct mining_attr*) arg;
 	short thr_id = arg_Struct->dev_id;
-    uint32_t devfd = arg_Struct->fd;
-    char dev_name[256];
-    strncpy(dev_name, arg_Struct->dev_name, 256);
+	uint32_t devfd = arg_Struct->fd;
+	char dev_name[256];
+	strncpy(dev_name, arg_Struct->dev_name, 256);
 
 	uint32_t end_nonce = 0x20000000u * (thr_id + 1);
 	// Run initialization of device before beginning timer
@@ -563,10 +563,10 @@ void* miner_thread(void* arg) {
 
 #ifdef _WIN32
 	int nPort = comFindPort(dev_name);
-        devfd = comOpen( nPort, 115200);
+		devfd = comOpen( nPort, 115200);
 #else
-    devfd = openserial(dev_name);  //		serial_port
-    arg_Struct->fd = devfd;
+	devfd = openserial(dev_name);  //		serial_port
+	arg_Struct->fd = devfd;
 #endif
 
 	uint32_t count = 0;
@@ -698,9 +698,9 @@ void* miner_thread(void* arg) {
 	printf("Resetting device...\n");
 
 	#ifdef _WIN32
-        comClose(devfd);
+		comClose(devfd);
 	#else
-        close(devfd);
+		close(devfd);
 	#endif
 
 	getchar();
@@ -728,9 +728,9 @@ int main(int argc, char *argv[])
 
 
 #ifdef _WIN32
-        // HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-        int comcnt = comEnumerate();
-        printf("COMPORTS Count %d\n", comcnt);
+		// HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+		int comcnt = comEnumerate();
+		printf("COMPORTS Count %d\n", comcnt);
 #endif
 
 
@@ -914,8 +914,8 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < opt_n_threads; i++) {
 
 		m_args[i].dev_id = device_map[i];
-        m_args[i].fd = fd;
-        strncpy(m_args[i].dev_name, MODEMDEVICE, 256);
+		m_args[i].fd = fd;
+		strncpy(m_args[i].dev_name, MODEMDEVICE, 256);
 
 		pthread_create(&tids[i], NULL, miner_thread, &m_args[i]);
 	}
