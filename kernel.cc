@@ -392,7 +392,6 @@ void dump(const char *fname, void *data, size_t len)
 		promptExit(-1);
 
 	}
-
 }
 
 
@@ -701,7 +700,7 @@ void* miner_thread(void* arg) {
 	#ifdef _WIN32
         comClose(devfd);
 	#else
-        closeserial(devfd);
+        close(devfd);
 	#endif
 
 	getchar();

@@ -5,18 +5,17 @@ OPENCL_HEADERS = "/opt/AMDAPPSDK-3.0/include"
 LIBOPENCL = "/opt/amdgpu-pro/lib/x86_64-linux-gnu"
 
 CC = g++
-CPPFLAGS = -I${OPENCL_HEADERS} -I./incs
+CPPFLAGS = -I./incs
 CFLAGS = -O2 -Wall
-# LDFLAGS =  -pthread -lpthread -rdynamic -L${LIBOPENCL} -fpermissive
-LDFLAGS =  -pthread -lpthread  -L./libs -L${LIBOPENCL} -fpermissive
-LDLIBS = -lOpenCL -lrt
+LDFLAGS =  -pthread -lpthread -fpermissive
+LDLIBS = -lpthread
 OBJ = kernel.cc libs/rs232-linux.c
 INCLUDES = _kernel.h
 EXE = veri_fm2l
 all : ${EXE}
 
 ${EXE} : ${OBJ} 
-	${CC} -std=gnu++11 -o ${EXE} ${OBJ} ${LDFLAGS} 
+	${CC} -std=gnu++11 -o ${EXE} ${OBJ} ${CFLAGS} ${CPPFLAGS} ${LDFLAGS} 
 
 ${OBJ} : ${INCLUDES} UCPClient.h Miner.h picojson.h
 
