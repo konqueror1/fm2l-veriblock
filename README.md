@@ -39,7 +39,7 @@ Optional Arguments:
 
 Example command line:
 ```
-veri_amd -u VHT36jJyoVFN7ap5Gu77Crua2BMv5j -o 94.130.64.18:8501 -l false
+veri_fm2l -u VHT36jJyoVFN7ap5Gu77Crua2BMv5j -o 94.130.64.18:8501 -l false
 ```
 
 
