@@ -69,6 +69,12 @@ dmesg
 
 ```
 
+edit **rungui.sh** 
+
+```
+gedit rungui.sh
+```
+
 and run
 
 ```
