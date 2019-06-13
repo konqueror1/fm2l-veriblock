@@ -18,6 +18,54 @@ PR and Issue , for this repository with your TEO address.
 
 # Thanks,
 
+# updates 2019/06/13
+### adds ubuntu multi gui miner start scripts.
+
+**rungui.sh** and **runveri.sh** has added for easy customization
+after download above file
+
+```
+chmod +x rungui.sh runveri.sh
+
+```
+and customize your pool, wallet , workername , usbdevice name in **rungui.sh**
+
+```
+# edit rungui.sh 
+#  ./runveri.sh  {pool-url} {Your wallet} {workername} {usb device name}
+```
+
+** also 
+```
+# you can check your device is connected by dmesg
+#   dmesg
+#  
+```
+**cp210x** is FM2L usb device.
+**ttyUSB0** is usb connected tty name
+**if you connect multiple FM2L card , ttyUSB? is increased**
+
+```
+dmesg
+
+.....
+
+[524071.711459] cp210x 1-11:1.0: **cp210x** converter detected
+[524071.713105] usb 1-11: cp210x converter now attached to ttyUSB0
+[526407.725114] usb 1-11: USB disconnect, device number 12
+# [526407.725378] cp210x ttyUSB0: cp210x converter now disconnected from ttyUSB0
+# [526407.725430] cp210x 1-11:1.0: device disconnected
+
+```
+
+and run
+
+```
+./rungui.sh
+
+```
+it is all.
+
 ----------
 
 
