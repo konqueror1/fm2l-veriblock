@@ -1,7 +1,5 @@
 # FM2L VBK miner source code patched.
 
-In ubuntu you can change the /dev/USB0 in [kernel.cc:L45 (#define MODEMDEVICE "/dev/ttyUSB0")](https://github.com/trustcoinmining/nodecore-pow-cuda-miner/blob/bc3c990ac642934392f4f2a462e2e5ba4c7919b2/kernel.cc#L45)
-
 compile : `make`
 
 In Windows version you can change the COM3 or COM2 , like this way.
@@ -25,10 +23,12 @@ PR and Issue , for this repository with your TEO address.
 
 ## Command Line Arguments
 <a name="command_line"></a>
-```VeriBlock vBlake GPU CUDA Miner v1.0
+```VeriBlock vBlake FM2L FPGA Miner v4.12
 Required Arguments:
 -o <poolAddress>           The pool address to mine to in the format host:port
 -u <username>              The username (often an address) used at the pool
+
+-nl <devicelists>          The multiple FPGA port lists, case sensitive
 
 Optional Arguments:
 -p <password>              The miner/worker password to use on the pool
@@ -39,7 +39,9 @@ Optional Arguments:
 
 Example command line:
 ```
-veri_fm2l -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C
+sudo veri_fm2l -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C  -nl /dev/ttyUSB0,/dev/ttyUSB1
+
+veri_fm2l.exe -o vbk.luckypool.io:9501 -u V6hhHVMxdcRzfT2rNFr1kmVq86riun -p FM2C  -nl COM2,COM8,COM9
 ```
 
 
