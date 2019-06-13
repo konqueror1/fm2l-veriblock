@@ -18,6 +18,13 @@ PR and Issue , for this repository with your TEO address.
 
 # Thanks,
 
+# updates 2019/06/14
+Windows10 WSL (Windows Subsystem Linux) based VBK mining
+
+refer Wiki ::
+https://github.com/trustcoinmining/fm2l-veriblock/wiki/WSL-(Windows-Subsystem-for-Linux)%EB%A5%BC-%EC%9D%B4%EC%9A%A9%ED%95%9C-Windows10-%EC%97%90%EC%84%9C-vbk-miner-%EC%9A%B4%EC%98%81%ED%95%98%EA%B8%B0.
+
+
 # updates 2019/06/13
 
 If you want to flashing permanantly bitstream, download on releases section *.mcs.zip and *.prm 
