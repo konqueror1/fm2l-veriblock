@@ -19,6 +19,17 @@ PR and Issue , for this repository with your TEO address.
 # Thanks,
 
 # updates 2019/06/13
+
+If you want to flashing permanantly bitstream, download on releases section *.mcs.zip and *.prm 
+and flashing it.
+
+[refer here](https://github.com/trustcoinmining/TCM-FMx/blob/master/VIVADO-MCS-File-Flashing.docx)
+it takes long time for 5~10minutes.
+
+And, also you need to connect Xilinx jtag driver , please contact our technical supports.
+please care a JTAG Line direction carefully. it is shared our telegram and discord.
+
+
 ### adds ubuntu multi gui miner start scripts.
 
 **rungui.sh** and **runveri.sh** has added for easy customization
