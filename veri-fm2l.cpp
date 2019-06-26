@@ -657,15 +657,15 @@ void* miner_thread(void* arg) {
 //0x00b00624
 	*/	for (int i = 0; i<8; i++){
 			pheaderin[i] = header[i];
-		//printf("H[%d]=  0x%jx)\n", i, header[i]);
+//			printf("H[%d]=  0x%jx)\n", i, header[i]);
 		}
 		pnonceout[0] = 0;
 		phashstartout[0] = 0;
 
 		int tmp;
-		int write_len;
-		unsigned char buf[8];
-
+		int write_len, wlen = 0;
+		unsigned char buf[8], sbuf[512];
+	
 		for (int kk=0; kk < 8; kk++)
 		{
 			unpack_uint64(header[kk],buf);
@@ -674,8 +674,20 @@ void* miner_thread(void* arg) {
 #else
 			write_len = write(devfd, (char *)buf,8);
 #endif
-		//printf("write_len:  %#010x\n", write_len);
+			memcpy(&sbuf[wlen] , buf , write_len);
+			wlen += write_len;
 		};
+
+	#ifdef DEBUG_WORKER
+		printf("\nWORK: ");
+		for (int jj = 0; jj < wlen ; jj+=8)
+		{
+			printf("%02X%02X%02X%02X %02X%02X%02X%02X  ", sbuf[jj],sbuf[jj+1],sbuf[jj+2],sbuf[jj+3],
+									sbuf[jj+4],sbuf[jj+5],sbuf[jj+6],sbuf[jj+7]);
+		}
+		printf("\n");
+	#endif
+
 
 		int recv_ok;
         int loop_count = 0;
