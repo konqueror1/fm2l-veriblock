@@ -242,6 +242,61 @@ void promptExit(int exitCode)
 	exit(exitCode);
 }
 
+
+// we need a helper function to convert hex to binary, this function is unsafe and slow, but very readable (write something better)
+void hex2bin(unsigned char* dest, unsigned char* src)
+{
+        unsigned char bin;
+        int c, pos;
+        char buf[3];
+ 
+        pos=0;
+        c=0;
+        buf[2] = 0;
+        while(c < strlen(src))
+        {
+                // read in 2 characaters at a time
+                buf[0] = src[c++];
+                buf[1] = src[c++];
+                // convert them to a interger and recast to a char (uint8)
+                dest[pos++] = (unsigned char)strtol(buf, NULL, 16);
+        }
+       
+}
+ 
+// this function is mostly useless in a real implementation, were only using it for demonstration purposes
+void hexdump(unsigned char* data, int len)
+{
+        int c;
+       
+        c=0;
+        while(c < len)
+        {
+                printf("%.2x", data[c++]);
+        }
+        printf("\n");
+}
+ 
+// this function swaps the byte ordering of binary data, this code is slow and bloated (write your own)
+void byte_swap(unsigned char* data, int len) {
+        int c;
+        unsigned char tmp[len];
+       
+        c=0;
+        while(c<len)
+        {
+                tmp[c] = data[len-(c+1)];
+                c++;
+        }
+       
+        c=0;
+        while(c<len)
+        {
+                data[c] = tmp[c];
+                c++;
+        }
+}
+ 
 /**
 * Takes the provided timestamp and places it in the header
 */
@@ -258,10 +313,27 @@ void embedTimestampInHeader(uint8_t *header, uint32_t timestamp)
 */
 void getWork(UCPClient& ucpClient, uint32_t timestamp, uint64_t *header)
 {
+	byte buffer[512];
+
 	//uint64_t *header = new uint64_t[8];
 	//printf("time stamp %08x \n", timestamp);
 	ucpClient.copyHeaderToHash((byte *)header);
 	embedTimestampInHeader((uint8_t*)header, timestamp);
+
+	hexdump((byte *)header,64);
+	hex2bin(buffer, (byte *)ucpClient.getPreviousBlockHash().c_str());
+	hexdump( buffer, 24);
+	hex2bin(buffer, (byte *)ucpClient.getMerkleRoot().c_str());
+	hexdump( buffer, 16);
+
+ // string getPreviousBlockHash() { return previousBlockHash; }
+  // string getMerkleRoot() { return merkleRoot; }
+  // unsigned int getEncodedDifficulty() { return encodedDifficulty; }
+  // unsigned long long getStartExtraNonce() { return startExtraNonce; }
+  // void copyMiningTarget(byte* destination) {
+  //   memcpy(destination, miningTarget, BLOCK_HASH_SIZE_BYTES);
+  // }
+	
 	//return header;
 }
 
@@ -657,7 +729,7 @@ void* miner_thread(void* arg) {
 //0x00b00624
 	*/	for (int i = 0; i<8; i++){
 			pheaderin[i] = header[i];
-//			printf("H[%d]=  0x%jx)\n", i, header[i]);
+			printf("H[%d]=  0x%jx)\n", i, header[i]);
 		}
 		pnonceout[0] = 0;
 		phashstartout[0] = 0;
@@ -678,12 +750,14 @@ void* miner_thread(void* arg) {
 			wlen += write_len;
 		};
 
+#define DEBUG_WORKER
+
 	#ifdef DEBUG_WORKER
 		printf("\nWORK: ");
 		for (int jj = 0; jj < wlen ; jj+=8)
 		{
-			printf("%02X%02X%02X%02X %02X%02X%02X%02X  ", sbuf[jj],sbuf[jj+1],sbuf[jj+2],sbuf[jj+3],
-									sbuf[jj+4],sbuf[jj+5],sbuf[jj+6],sbuf[jj+7]);
+			printf("%02X%02X%02X%02X %02X%02X%02X%02X  ", sbuf[jj+7],sbuf[jj+6],sbuf[jj+5],sbuf[jj+4],
+									sbuf[jj+3],sbuf[jj+2],sbuf[jj+1],sbuf[jj+0]);
 		}
 		printf("\n");
 	#endif
