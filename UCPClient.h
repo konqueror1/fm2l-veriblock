@@ -91,6 +91,7 @@ class UCPClient {
   string secondPreviousBlockHash = "...";
   string thirdPreviousBlockHash = "...";
   string merkleRoot = "...";
+  unsigned int bVersion;
 
   char outputBuffer[2048];
 
@@ -896,6 +897,7 @@ class UCPClient {
         jobId = getDataIntFromJSONById(message, "job_id");
 
         blockVersion = getDataIntFromJSONById(message, "block_version");
+	bVersion = blockVersion;
 
         previousBlockHash =
             getDataStringFromJSONById(message, "previous_block_hash");
@@ -1045,10 +1047,14 @@ class UCPClient {
   unsigned int getJobId() { return jobId; }
 
   string getPreviousBlockHash() { return previousBlockHash; }
+  string getSecondPreviousBlockHash() { return secondPreviousBlockHash; }
+  string getThirdPreviousBlockHash() { return thirdPreviousBlockHash; }
 
   string getMerkleRoot() { return merkleRoot; }
 
   unsigned int getEncodedDifficulty() { return encodedDifficulty; }
+  unsigned int getBlockHeight() { return blockHeight; }
+  unsigned int getBlockVersion() { return bVersion; }
 
   unsigned long long getStartExtraNonce() { return startExtraNonce; }
 

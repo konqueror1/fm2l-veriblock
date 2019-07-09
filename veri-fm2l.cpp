@@ -51,6 +51,8 @@ typedef SSIZE_T ssize_t;
 // #define MODEMDEVICE "/dev/ttyUSB0"
 // #define MODEMDEVICE "/dev/ttyUSB1"
 
+#define DEBUG_WORKER
+
 #ifdef _WIN32
 #define DEFMODEMDEVICE "COM8"
 #else	// linux
@@ -316,15 +318,45 @@ void getWork(UCPClient& ucpClient, uint32_t timestamp, uint64_t *header)
 	byte buffer[512];
 
 	//uint64_t *header = new uint64_t[8];
-	//printf("time stamp %08x \n", timestamp);
 	ucpClient.copyHeaderToHash((byte *)header);
 	embedTimestampInHeader((uint8_t*)header, timestamp);
 
-	hexdump((byte *)header,64);
+#ifdef DEBUG_WORKER 
+
+	printf("\n Getwork dump \n", timestamp);
+	
+	printf("blockheight             : %08x\n" , ucpClient.getBlockHeight() );
+	printf("blockversion  (2B)      : %04x\n" , ucpClient.getBlockVersion() );
+
+	printf("prevBlockhash (12B)     : ");
 	hex2bin(buffer, (byte *)ucpClient.getPreviousBlockHash().c_str());
-	hexdump( buffer, 24);
+	hexdump( buffer, 12);
+
+	printf("2nd prevBlockhash (9B)  : ");
+	hex2bin(buffer, (byte *)ucpClient.getSecondPreviousBlockHash().c_str());
+	hexdump( buffer, 9);
+
+	printf("3rd prevBlockhash (9B)  : ");
+	hex2bin(buffer, (byte *)ucpClient.getThirdPreviousBlockHash().c_str());
+	hexdump( buffer, 9);
+
+	printf("Merkle Root hash (16B)  : ");
 	hex2bin(buffer, (byte *)ucpClient.getMerkleRoot().c_str());
 	hexdump( buffer, 16);
+
+
+	printf("time stamp %08x \n", timestamp);
+	printf("encodedDiff %08x\n",  ucpClient.getEncodedDifficulty() );
+
+	printf("Dump blockheader hex : \n");
+	hexdump((byte *)header,64);
+
+	printf("Additional info\n");
+	printf("miningTargetHash :\n");
+	ucpClient.copyMiningTarget(buffer);
+	hexdump( buffer, 16);
+	
+#endif
 
  // string getPreviousBlockHash() { return previousBlockHash; }
   // string getMerkleRoot() { return merkleRoot; }
@@ -706,10 +738,12 @@ void* miner_thread(void* arg) {
 		vprintf("Getting work...\n");
 		pthread_mutex_lock(&stratum_sock_lock);
 		getWork(*pUCP, timestamp, header);
-		vprintf("Getting job id...\n");
 		int jobId = pUCP->getJobId();
 		pthread_mutex_unlock(&stratum_sock_lock);
+		printf("Getting job id... %08x \n", jobId);
 
+		
+		
 	restart_here:
 		count++;
 		vprintf("Running kernel...\n");
@@ -750,7 +784,6 @@ void* miner_thread(void* arg) {
 			wlen += write_len;
 		};
 
-#define DEBUG_WORKER
 
 	#ifdef DEBUG_WORKER
 		printf("\nWORK: ");
