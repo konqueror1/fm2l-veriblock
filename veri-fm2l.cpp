@@ -362,6 +362,7 @@ void getWork(UCPClient& ucpClient, uint32_t timestamp, uint64_t *header)
 	printf("\n");
 
 	printf("Additional info\n");
+	printf("ExtraNonceStart..End [ %016llx .. %016llx ]\n", ucpClient.getExtraNonceStart(), ucpClient.getExtraNonceEnd());
 
 	//ucpClient.copyMiningTarget(buffer);
 	printf("miningTargetHash :%s\n", ucpClient.getMiningTarget().c_str());

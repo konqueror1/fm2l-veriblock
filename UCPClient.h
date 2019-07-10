@@ -83,7 +83,8 @@ class UCPClient {
 
   byte headerToHash[VERIBLOCK_BLOCK_HEADER_SIZE];
   unsigned int jobId = 0xFFFFFFFF;
-  int64_t startExtraNonce = 0xFFFFFFFFFFFFFFFF;
+  int64_t ExtraNonceStart = 0xFFFFFFFFFFFFFFFF;
+  int64_t ExtraNonceEnd = 0xFFFFFFFFFFFFFFFF;
   unsigned int encodedDifficulty;
 
   int blockHeight = -1;
@@ -149,7 +150,7 @@ class UCPClient {
     nonceObj["data"] = picojson::value((double)nonce);
 
     extraNonceObj["type"] = picojson::value("EXTRA_NONCE");
-    extraNonceObj["data"] = picojson::value(startExtraNonce);
+    extraNonceObj["data"] = picojson::value(ExtraNonceStart);
 
     top["request_id"] = picojson::value(requestIdObj);
     top["job_id"] = picojson::value(jobIdObj);
@@ -946,10 +947,13 @@ class UCPClient {
           miningTarget[i] = extractByteFromHex(miningTargetHex, i * 2);
         }
 
-        picojson::value value =
-            extractDataValueFromJSONById(message, "extra_nonce_start");
-        int64_t test = value.get<int64_t>();
-        startExtraNonce = test;
+        picojson::value value = extractDataValueFromJSONById(message, "extra_nonce_start");
+        int64_t extranoncestart = value.get<int64_t>();
+        ExtraNonceStart = extranoncestart;
+
+        value = extractDataValueFromJSONById(message, "extra_nonce_end");
+        int64_t extranonceend = value.get<int64_t>();
+        ExtraNonceEnd = extranonceend;
 
         for (int i = 0; i < 4; i++) {
           headerToHash[i] = (blockHeight >> ((3 - i) * 8));
@@ -1056,7 +1060,8 @@ class UCPClient {
   unsigned int getBlockHeight() { return blockHeight; }
   unsigned int getBlockVersion() { return bVersion; }
 
-  unsigned long long getStartExtraNonce() { return startExtraNonce; }
+  unsigned long long getExtraNonceStart() { return ExtraNonceStart; }
+  unsigned long long getExtraNonceEnd() { return ExtraNonceEnd; }
 
   void copyMiningTarget(byte* destination) {
     memcpy(destination, miningTarget, BLOCK_HASH_SIZE_BYTES);
