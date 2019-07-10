@@ -328,33 +328,46 @@ void getWork(UCPClient& ucpClient, uint32_t timestamp, uint64_t *header)
 	printf("blockheight             : %08x\n" , ucpClient.getBlockHeight() );
 	printf("blockversion  (2B)      : %04x\n" , ucpClient.getBlockVersion() );
 
-	printf("prevBlockhash (12B)     : ");
-	hex2bin(buffer, (byte *)ucpClient.getPreviousBlockHash().c_str());
-	hexdump( buffer, 12);
+	printf("prevBlockhash (12B)     : %s\n", ucpClient.getPreviousBlockHash().c_str());
+	//hex2bin(buffer, (byte *)ucpClient.getPreviousBlockHash().c_str());
+	//hexdump( buffer, 12);
 
-	printf("2nd prevBlockhash (9B)  : ");
-	hex2bin(buffer, (byte *)ucpClient.getSecondPreviousBlockHash().c_str());
-	hexdump( buffer, 9);
+	printf("2nd prevBlockhash (9B)  : %s\n", ucpClient.getSecondPreviousBlockHash().c_str());
+	// hex2bin(buffer, (byte *)ucpClient.getSecondPreviousBlockHash().c_str());
+	// hexdump( buffer, 9);
 
-	printf("3rd prevBlockhash (9B)  : ");
-	hex2bin(buffer, (byte *)ucpClient.getThirdPreviousBlockHash().c_str());
-	hexdump( buffer, 9);
+	printf("3rd prevBlockhash (9B)  : %s\n", ucpClient.getThirdPreviousBlockHash().c_str());
+	// hex2bin(buffer, (byte *)ucpClient.getThirdPreviousBlockHash().c_str());
+	// hexdump( buffer, 9);
 
-	printf("Merkle Root hash (16B)  : ");
-	hex2bin(buffer, (byte *)ucpClient.getMerkleRoot().c_str());
-	hexdump( buffer, 16);
+	printf("Merkle Root hash (16B)  : %s\n", ucpClient.getMerkleRoot().c_str());
+	// hex2bin(buffer, (byte *)ucpClient.getMerkleRoot().c_str());
+	// hexdump( buffer, 16);
 
 
 	printf("time stamp %08x \n", timestamp);
 	printf("encodedDiff %08x\n",  ucpClient.getEncodedDifficulty() );
 
-	printf("Dump blockheader hex : \n");
-	hexdump((byte *)header,64);
+	printf("Dump blockheader hex : \n ");
+	byte *pheader = (byte *)header;
+	hexdump( (pheader+0),4); printf(" ");
+	hexdump( (pheader+4),2); printf(" ");
+	hexdump( (pheader+6),12); printf(" ");
+	hexdump( (pheader+18),9); printf(" ");
+	hexdump( (pheader+27),9); printf(" ");
+	hexdump( (pheader+36),16); printf(" ");
+	hexdump( (pheader+52),4); printf(" ");
+	hexdump( (pheader+56),4); printf(" ");
+	hexdump( (pheader+60),4); printf(" ");
+	printf("\n");
 
 	printf("Additional info\n");
-	printf("miningTargetHash :\n");
-	ucpClient.copyMiningTarget(buffer);
-	hexdump( buffer, 16);
+
+	//ucpClient.copyMiningTarget(buffer);
+	printf("miningTargetHash :%s\n", ucpClient.getMiningTarget().c_str());
+	// hexdump( buffer, 16);
+	printf("\n");
+
 	
 #endif
 
@@ -740,7 +753,7 @@ void* miner_thread(void* arg) {
 		getWork(*pUCP, timestamp, header);
 		int jobId = pUCP->getJobId();
 		pthread_mutex_unlock(&stratum_sock_lock);
-		printf("Getting job id... %08x \n", jobId);
+		printf("Start Getting job id... %08x \n", jobId);
 
 		
 		
@@ -763,7 +776,7 @@ void* miner_thread(void* arg) {
 //0x00b00624
 	*/	for (int i = 0; i<8; i++){
 			pheaderin[i] = header[i];
-			printf("H[%d]=  0x%jx)\n", i, header[i]);
+			// printf("H[%d]=  0x%jx)\n", i, header[i]);
 		}
 		pnonceout[0] = 0;
 		phashstartout[0] = 0;

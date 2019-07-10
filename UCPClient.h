@@ -96,6 +96,7 @@ class UCPClient {
   char outputBuffer[2048];
 
   byte miningTarget[BLOCK_HASH_SIZE_BYTES];
+  string miningTargetHex = "...";
 
   thread runThread;
 
@@ -940,8 +941,7 @@ class UCPClient {
 
         encodedDifficulty = getDataIntFromJSONById(message, "difficulty");
 
-        string miningTargetHex =
-            getDataStringFromJSONById(message, "mining_target");
+        miningTargetHex = getDataStringFromJSONById(message, "mining_target");
         for (int i = 0; i < BLOCK_HASH_SIZE_BYTES; i++) {
           miningTarget[i] = extractByteFromHex(miningTargetHex, i * 2);
         }
@@ -1061,6 +1061,7 @@ class UCPClient {
   void copyMiningTarget(byte* destination) {
     memcpy(destination, miningTarget, BLOCK_HASH_SIZE_BYTES);
   }
+  string getMiningTarget() { return miningTargetHex; }
 
   boolean hasWorkReady() { return workAvailable; }
 
