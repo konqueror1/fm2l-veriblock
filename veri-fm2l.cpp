@@ -665,7 +665,7 @@ void* miner_thread(void* arg) {
 	// Run initialization of device before beginning timer
 	uint64_t header[8];
 	pthread_mutex_lock(&stratum_sock_lock);
-	getWork(*pUCP, (uint32_t)std::time(0), header);
+	// getWork(*pUCP, (uint32_t)std::time(0), header);
 	pthread_mutex_unlock(&stratum_sock_lock);
 	pthread_mutex_lock(&stratum_log_lock);
 	unsigned long long startTime = std::time(0);
